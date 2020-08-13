@@ -75,6 +75,11 @@
 #include <pcl/io/pcd_io.h>
 
 
+//new keypoint methods
+#include <pcl/keypoints/susan.h>
+#include <pcl/keypoints/harris_6d.h>
+
+
 using namespace std;
 
 //nice results with in 7s
@@ -114,7 +119,7 @@ inline bool exists_file (const std::string& name) {
     return (stat (name.c_str(), &buffer) == 0);
 }
 
-void detect_keypoints(pcl::PointCloud <pcl::PointXYZRGB>::Ptr &points,
+void detect_keypoints_SIFT(pcl::PointCloud <pcl::PointXYZRGB>::Ptr &points,
     pcl::PointCloud <pcl::PointWithScale>::Ptr &keypoints_out) {
 
     pcl::SIFTKeypoint <pcl::PointXYZRGB, pcl::PointWithScale> sift_detect;
@@ -389,18 +394,24 @@ void rejectBadCorrespondences(const pcl::CorrespondencesPtr &all_correspondences
 }
 
 
-void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
+void compute_keypoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr &tgt,
-    Eigen::Matrix4f &transform,
     pcl::PointCloud<pcl::PointXYZ>::Ptr & keypoints_src_visualize_temp,
     pcl::PointCloud<pcl::PointXYZ>::Ptr & keypoints_tgt_visualize_temp,
-    pcl::Correspondences & good_correspondences,
     std::string keypoints_meth) {
 
 
     // ESTIMATING KEY POINTS
     pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints_src(new pcl::PointCloud<pcl::PointWithScale>);
     pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints_tgt(new pcl::PointCloud<pcl::PointWithScale>);
+
+
+    //  COMPUTING NORMALS
+    pcl::PointCloud <pcl::Normal>::Ptr src_normals(new pcl::PointCloud<pcl::Normal>);
+    pcl::PointCloud <pcl::Normal>::Ptr tgt_normals(new pcl::PointCloud<pcl::Normal>);
+
+    compute_normals(src, src_normals);
+    compute_normals(tgt, tgt_normals);
 
     if(keypoints_meth=="ISS"){
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_iss_src( new pcl::PointCloud<pcl::PointXYZRGB>() );
@@ -425,10 +436,83 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
 
         pcl::copyPointCloud(*keypoints_harris_scr, *keypoints_src);
         pcl::copyPointCloud(*keypoints_harris_tgt, *keypoints_tgt);
+    }else if(keypoints_meth=="NARF"){
+
+        //not tested
+        pcl::PointCloud<pcl::PointXYZI>::Ptr keypoints_narf_scr( new pcl::PointCloud<pcl::PointXYZI>() );
+        pcl::PointCloud<pcl::PointXYZI>::Ptr keypoints_narf_tgt( new pcl::PointCloud<pcl::PointXYZI>() );
+        cout << "chosen Method is Narf" << endl;
+
+        cout << "No of NARF points in the src are " << keypoints_narf_scr->points.size() << endl;
+        cout << "No of NARF points in the tgt are " << keypoints_narf_tgt->points.size() << endl;
+
+        pcl::copyPointCloud(*keypoints_narf_scr, *keypoints_src);
+        pcl::copyPointCloud(*keypoints_narf_tgt, *keypoints_tgt);
+    }else if(keypoints_meth=="AGAS"){
+
+    }else if(keypoints_meth=="HARRIS6D"){
+        /*
+        harris6D_detector_src* detector = new HarrisKeypoint6D(HarrisKeypoint::HARRIS);
+        harris6D_detector_tgt* detector = new HarrisKeypoint6D(HarrisKeypoint::HARRIS);
+        //pcl::HarrisKeypoint6D<pcl::PointXYZRGB, pcl::PointXYZI>::Ptr harris6D_detector_src(new pcl::HarrisKeypoint6D<pcl::PointXYZI);
+        //pcl::HarrisKeypoint6D<pcl::PointXYZRGB, pcl::PointXYZI>::Ptr harris6D_detector_tgt(new pcl::HarrisKeypoint6D<pcl::PointXYZRGB);
+
+        harris6D_detector_src->setNonMaxSupression( true );
+        harris6D_detector_src->setRadius( set_radius );//orig 0.03f   worked with 0.45 for CURVATURE
+        harris6D_detector_src->setRadiusSearch( set_radius_search );//orig 0.03f   worked with 0.45 for CURVATURE
+
+        harris6D_detector_tgt->setNonMaxSupression( true );
+        harris6D_detector_tgt->setRadius( set_radius );//orig 0.03f   worked with 0.45 for CURVATURE
+        harris6D_detector_tgt->setRadiusSearch( set_radius_search );//orig 0.03f   worked with 0.45 for CURVATURE
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr keypoints_harris6d_scr( new pcl::PointCloud<pcl::PointXYZI>() );
+        pcl::PointCloud<pcl::PointXYZI>::Ptr keypoints_harris6d_tgt( new pcl::PointCloud<pcl::PointXYZI>() );
+
+        harris6D_detector_src->setInputCloud( src );
+        harris6D_detector_tgt->setInputCloud( tgt );
+        harris6D_detector_src->compute( *keypoints_harris6d_scr );
+        harris6D_detector_tgt->compute( *keypoints_harris6d_tgt );
+    */
+
+    }else if(keypoints_meth=="TRAJCOVIC") {
+
+    }else if(keypoints_meth=="SUSAN"){
+
+        pcl::SUSANKeypoint<pcl::PointXYZRGB, pcl::PointXYZRGB>* susan3D_src = new  pcl::SUSANKeypoint<pcl::PointXYZRGB, pcl::PointXYZRGB>;
+        pcl::SUSANKeypoint<pcl::PointXYZRGB, pcl::PointXYZRGB>* susan3D_tgt = new  pcl::SUSANKeypoint<pcl::PointXYZRGB, pcl::PointXYZRGB>;
+        susan3D_src->setInputCloud(src);
+        susan3D_tgt->setInputCloud(tgt);
+        susan3D_src->setNonMaxSupression(true); //true
+        susan3D_tgt->setNonMaxSupression(true);  //true
+        //susan3D_src->setNormals(src_normals);   //new
+        //
+        float set_radius_susan =1.7,set_radius_search_susan=1.7;
+        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree_src (new pcl::search::KdTree<pcl::PointXYZRGB> ());
+        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree_tgt (new pcl::search::KdTree<pcl::PointXYZRGB> ());
+        susan3D_src->setSearchMethod(tree_src);
+        susan3D_tgt->setSearchMethod(tree_tgt);
+        susan3D_src->setRadius(set_radius_susan);
+        susan3D_tgt->setRadius(set_radius_susan);
+        susan3D_src->setRadiusSearch(5.);
+        susan3D_tgt->setRadiusSearch(5.);
+
+        susan3D_src->setDistanceThreshold (15.0);   //new
+        susan3D_tgt->setDistanceThreshold (15.0);   //new
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_susan_scr (new pcl::PointCloud<pcl::PointXYZRGB> ());
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_susan_tgt (new pcl::PointCloud<pcl::PointXYZRGB> ());
+        susan3D_src->compute(*keypoints_susan_scr);
+        susan3D_tgt->compute(*keypoints_susan_tgt);
+
+
+        cout << "No of SUSAN points in the src are " << keypoints_susan_scr->points.size() << endl;
+        cout << "No of SUSAN points in the tgt are " << keypoints_susan_tgt->points.size() << endl;
+
+        pcl::copyPointCloud(*keypoints_susan_scr, *keypoints_src);
+        pcl::copyPointCloud(*keypoints_susan_tgt, *keypoints_tgt);
     }else{
         cout << "chosen Method is SWIFT" << endl;
-        detect_keypoints(src, keypoints_src);
-        detect_keypoints(tgt, keypoints_tgt);
+        detect_keypoints_SIFT(src, keypoints_src);
+        detect_keypoints_SIFT(tgt, keypoints_tgt);
 
         cout << "No of SIFT points in the src are " << keypoints_src->points.size() << endl;
         cout << "No of SIFT points in the tgt are " << keypoints_tgt->points.size() << endl;
@@ -437,13 +521,8 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
 
 
 
-    // ESTIMATING PFH FEATURE DESCRIPTORS AT KEYPOINTS AFTER COMPUTING NORMALS
-    pcl::PointCloud <pcl::Normal>::Ptr src_normals(new pcl::PointCloud<pcl::Normal>);
-    pcl::PointCloud <pcl::Normal>::Ptr tgt_normals(new pcl::PointCloud<pcl::Normal>);
 
-    compute_normals(src, src_normals);
-    compute_normals(tgt, tgt_normals);
-
+/*
     // PFHRGB Estimation
     pcl::PointCloud <pcl::PFHRGBSignature250>::Ptr fpfhs_src_rgb(new pcl::PointCloud<pcl::PFHRGBSignature250>);
     pcl::PointCloud <pcl::PFHRGBSignature250>::Ptr fpfhs_tgt_rgb(new pcl::PointCloud<pcl::PFHRGBSignature250>);
@@ -451,7 +530,7 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
     compute_PFHRGB_features(src, src_normals, keypoints_src, fpfhs_src_rgb);
     compute_PFHRGB_features(tgt, tgt_normals, keypoints_tgt, fpfhs_tgt_rgb);
     cout << "End of compute_FPFH_RGB_features! " << endl;
-
+*/
     // Copying the pointwithscale to pointxyz so as visualize the cloud
     pcl::copyPointCloud(*keypoints_src, *keypoints_src_visualize_temp);
     pcl::copyPointCloud(*keypoints_tgt, *keypoints_tgt_visualize_temp);
@@ -459,12 +538,12 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
     //cout << "SIFT points in the keypoints_src_visualize_temp are " << keypoints_src_visualize_temp->points.size() << endl;
     //cout << "SIFT points in the keypoints_tgt_visualize_temp are " << keypoints_tgt_visualize_temp->points.size() << endl;
 
-
+/*
     // Find correspondences between keypoints in FPFH space
     pcl::CorrespondencesPtr all_correspondences_RGB(new pcl::Correspondences);
     findCorrespondences_PFHRGB(fpfhs_src_rgb, fpfhs_tgt_rgb, *all_correspondences_RGB);
     cout << "All correspondences size: " << all_correspondences_RGB->size() << endl;
-
+*/
 
     //todo remove later -> uncomented stuff is without RGB matching
     /*
@@ -484,7 +563,7 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
 
     // Reject correspondences based on their XYZ distance
     /*rejectBadCorrespondences(all_correspondences, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp, good_correspondences);*/
-
+/*
     rejectBadCorrespondences(all_correspondences_RGB, keypoints_src, keypoints_tgt, good_correspondences);
     //rejectBadCorrespondences(all_correspondences, keypoints_src, keypoints_tgt, good_correspondences);
 
@@ -496,7 +575,7 @@ void compute_Initial_Transformation(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
     pcl::registration::TransformationEstimationSVD<pcl::PointXYZ, pcl::PointXYZ> trans_est;
     trans_est.estimateRigidTransformation(*keypoints_src_visualize_temp, *keypoints_tgt_visualize_temp, good_correspondences, transform);
 
-
+*/
 }
 
 void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_1, const pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_2){
@@ -506,9 +585,9 @@ void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::P
     //calculate the overlapping points
     //visualize the keypoints off bodyFiltered_1 with lines
     for (size_t i = 0; i < keypoints_2->size(); ++i) {
-        if( (keypoints_2->points[i].x > submap_overlap.minX) && (keypoints_2->points[i].x < submap_overlap.maxX) && (keypoints_2->points[i].y > submap_overlap.minY) && (keypoints_2->points[i].x < submap_overlap.maxY)){
-            keypoints_2_inOverlap++;
-        }
+        //if( (keypoints_2->points[i].x > submap_overlap.minX) && (keypoints_2->points[i].x < submap_overlap.maxX) && (keypoints_2->points[i].y > submap_overlap.minY) && (keypoints_2->points[i].x < submap_overlap.maxY)){
+        //    keypoints_2_inOverlap++;
+        //}
         for (size_t ii = 0; ii < keypoints_1->size(); ++ii) {
             //check if a coresponding keypoint exists
             //only check x and y since noise and offset is added to the second cloud/submap
@@ -517,7 +596,7 @@ void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::P
             }
             if( (keypoints_1->points[i].x > submap_overlap.minX) && (keypoints_1->points[i].x < submap_overlap.maxX) && (keypoints_1->points[i].y > submap_overlap.minY) && (keypoints_1->points[i].x < submap_overlap.maxY)){
                 if( (keypoints_2->points[i].x==keypoints_1->points[ii].x) && (keypoints_2->points[i].y==keypoints_1->points[ii].y)){
-                    keypoint_Overlaparea_fit_cnt++; //the points in the overalapping area which ahve the same coordinates
+                    keypoint_Overlaparea_fit_cnt++; //the points in the overalapping area which have the same coordinates
                 }
             }
         }
@@ -533,6 +612,10 @@ void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::P
             keypoints_2_inOverlap++;
         }
     }
+    std::cout << "Num of Keypoints_1 in the overlapping area: " << keypoints_1_inOverlap << std::endl;
+    std::cout << "Num of Keypoints_2 in the overlapping area: " << keypoints_2_inOverlap << std::endl;
+    std::cout << "Total Keypoints 1: " <<  keypoints_1->size() << std::endl;
+    std::cout << "Total Keypoints 2: " <<  keypoints_2->size() << std::endl;
 
     if(keypoints_1_inOverlap<keypoints_2_inOverlap){
         overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_1_inOverlap;
@@ -542,24 +625,31 @@ void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::P
     if(keypoints_1->size()<keypoints_2->size()){
         total_overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_1->size();
     }else{
-        total_overlap_rate=(double) keypoint_Overlap_cnt/ (double) keypoints_2->size();
+        total_overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_2->size();
     }
     std::cout << "----------------------------------------------------------------"  << std::endl;
     std::cout << "total Num of Overlapping Keypoints (coordinates): " << keypoint_Overlap_cnt << std::endl;
-    std::cout << "Num of Keypoints_1 in the overlapping area: " << keypoints_1_inOverlap << std::endl;
-    std::cout << "Num of Keypoints_2 in the overlapping area: " << keypoints_2_inOverlap << std::endl;
+;
     std::cout << "Num Keypoints_1 in the region of interest fitting Keypoints_2 (coord): " << keypoint_Overlaparea_fit_cnt << std::endl;
-    std::cout << "Overlapping Rate of Keypoints: " << overlap_rate << std::endl;
-    std::cout << "Total Overlapping Rate of Keypoints: " << total_overlap_rate << std::endl;
+    overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_1_inOverlap;
+    std::cout << "Overlapping Rate of Keypoints 1: " << overlap_rate << std::endl;
+    overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_2_inOverlap;
+    std::cout << "Overlapping Rate of Keypoints 2: " << overlap_rate << std::endl;
+    total_overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_1->size();
+    std::cout << "Total Overlapping Rate of Keypoints 1: " << total_overlap_rate << std::endl;
+    total_overlap_rate= (double) keypoint_Overlap_cnt / (double) keypoints_2->size();
+    std::cout << "Total Overlapping Rate of Keypoints 2: " << total_overlap_rate << std::endl;
     std::cout << "----------------------------------------------------------------"  << std::endl;
 }
 
 
 int main(int argc, char** argv) {
     int roation_flag=0, z_rejection_flag=0;
-    int red=0, green=0, blue=0, jet_flag, grid_flag;
+    int red=0, green=0, blue=0, jet_flag=0, grid_flag=0;
     //parse input para
-    double validation_radius_in=0, validation_radius_out=0, noise_offset=0, noise_var=0, x_o=0, y_o=0, z_o=0,rot_alpha=0, rot_betha=0, rot_gamma=0, visu_dist=0, jet_stacking_threshold=30.0;
+    double validation_radius_in=0.0, validation_radius_out=0.0;
+    double noise_offset=0.0, noise_var=0.0, x_o=0.0, y_o=0.0, z_o=0.0,rot_alpha=0.0, rot_betha=0.0, rot_gamma=0.0;
+    double visu_dist=0.0, jet_stacking_threshold=30.0;
     cxxopts::Options options("test", "A brief description");
     options.add_options()
             ("e,validation_in", "The radius in which a feature point will count as (exact) correct if not fitting excatly", cxxopts::value<double>(validation_radius_in)->default_value("0.0"))
@@ -574,7 +664,7 @@ int main(int argc, char** argv) {
             ("x,xoffset", "Param foo", cxxopts::value<double>(x_o)->default_value("0.0"))
             ("y,yoffset", "Param foo", cxxopts::value<double>(y_o)->default_value("0.0"))
             ("z,zoffset", "Param foo", cxxopts::value<double>(z_o)->default_value("0.0"))
-            ("d,distance", "visualization distance", cxxopts::value<double>(visu_dist)->default_value("0.0"))
+            ("d,visdistance", "visualization distance", cxxopts::value<double>(visu_dist)->default_value("0.0"))
             ("a,alpha", "roation around z axis (insert in radiant)", cxxopts::value<double>(rot_alpha)->default_value("0.0"))
             ("b,betha", "roation around y axis (insert in radiant)", cxxopts::value<double>(rot_betha)->default_value("0.0"))
             ("c,gamma", "roation around x axis (insert in radiant)", cxxopts::value<double>(rot_gamma)->default_value("0.0"))
@@ -583,7 +673,7 @@ int main(int argc, char** argv) {
             ("r,red", "set one color red", cxxopts::value<int>(red)->default_value("0"))
             ("g,green", "set one color green", cxxopts::value<int>(green)->default_value("0"))
             ("u,blue", "set one color blue", cxxopts::value<int>(blue)->default_value("0"))
-            ("j,jet", "apply jet function to color", cxxopts::value<int>(jet_flag)->default_value("0.0"))
+            ("j,jet", "apply jet function to color", cxxopts::value<int>(jet_flag)->default_value("0"))
             ("h,help", "Print usage")
             ;
     auto result = options.parse(argc, argv);
@@ -664,6 +754,7 @@ int main(int argc, char** argv) {
     add_noise_normal_distributedvoid(tgt_transformed, noise_offset, noise_var, x_o, y_o, z_o, red, green, blue);
     //add_noise_normal_distributedvoid(src_original, 0, 0, 0, 0, 0, red, green, blue, color); //remove later....just to make it white
 
+    /*
     Eigen::Matrix4f transform_1 = Eigen::Matrix4f::Identity();
     Eigen::Matrix4f transform_1_inverse = Eigen::Matrix4f::Identity();
     if (roation_flag==1){
@@ -680,15 +771,15 @@ int main(int argc, char** argv) {
         transform_1 (2,2) = std::cos(rot_betha)*std::cos(rot_gamma);
 
         //add the translation
-    /*
-        transform_1 (0,3) =x_o;
-        transform_1 (1,3) =y_o;
-        transform_1 (3,3) =z_o;
-*/
+
+        //transform_1 (0,3) =x_o;
+        //transform_1 (1,3) =y_o;
+        //transform_1 (3,3) =z_o;
+
         pcl::transformPointCloud (*tgt_transformed, *tgt_transformed, transform_1);
     }
     transform_1_inverse = transform_1.inverse();
-
+    */
 
     if(jet_flag==1  || jet_flag==2){
         double total_min_z, total_max_z;
@@ -796,15 +887,20 @@ int main(int argc, char** argv) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_src_visualize_temp(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_tgt_visualize_temp(new pcl::PointCloud<pcl::PointXYZ>);
 
+
     // Find correspondences between keypoints in FPFH space
-    pcl::CorrespondencesPtr good_correspondences(new pcl::Correspondences);
+    //pcl::CorrespondencesPtr good_correspondences(new pcl::Correspondences);
 
     // Obtain the initial transformation matirx by using the key-points
-    Eigen::Matrix4f transform;
-    compute_Initial_Transformation(src, tgt, transform, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp, *good_correspondences, keypoint_method);
-    cout << "Initial Transformation Matrix" << endl;
-    std::cout << transform << std::endl;
+    //Eigen::Matrix4f transform;
+    compute_keypoints(src, tgt, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp, keypoint_method);
+    //cout << "Initial Transformation Matrix" << endl;
+    //std::cout << transform << std::endl;
 
+    // Time end (main computation)
+    time(&end_computation);
+    double time_elapsed_computation = difftime(end_computation, start_computation);
+    cout << "Elasped computation time in seconds: " << time_elapsed_computation << endl;
 
     //---------------get basic keypoint ratio---------------------
     pcl::PointXYZRGB minPt1, maxPt1, minPt2, maxPt2;;
@@ -829,6 +925,8 @@ int main(int argc, char** argv) {
     keypoint_evaluation(submap_overlap, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp);
     //-------------------------------------------------------
 
+
+
     //todo active for saving only
     if(0 ){
         pcl::PCDWriter writer;
@@ -838,10 +936,7 @@ int main(int argc, char** argv) {
         std::cout << "Save succesfully keypoints_tgt_visualize_temp" << std::endl;
     }
 
-    // Time end (main computation)
-    time(&end_computation);
-    double time_elapsed_computation = difftime(end_computation, start_computation);
-    cout << "Elasped computation time in seconds: " << time_elapsed_computation << endl;
+
 
 // Visualization of keypoints along with the original cloud and correspondences
     pcl::visualization::PCLVisualizer corresp_viewer("Correspondences Viewer");
@@ -857,9 +952,11 @@ int main(int argc, char** argv) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr tgt_transformed_eval(new pcl::PointCloud<pcl::PointXYZ>);
     copyPointCloud(*keypoints_tgt_visualize_temp, *tgt_transformed_eval);
     std::cout << "Derotation evaluation is on"  << std::endl;
+    /*
     if(roation_flag==1){
         pcl::transformPointCloud (*tgt_transformed_eval, *tgt_transformed_eval, transform_1_inverse);
     }
+     */
     for (std::size_t i = 0; i < tgt_transformed_eval->points.size (); ++i) {
         tgt_transformed_eval->points[i].x -=x_o;
         tgt_transformed_eval->points[i].y -=y_o;
@@ -878,6 +975,7 @@ int main(int argc, char** argv) {
     pcl::PointXYZ tgt_transformed_tmp;  //descripes the target point in with the applied transformation in the new coordinate system
 
     //additional correspondences rejection based on the z difference (the z distance can be assumed to be more accurate)
+    /*
     if(z_rejection_flag==1){
         pcl::CorrespondencesPtr final_correspondences (new pcl::Correspondences ());
         int correspondenc_cnt=0;
@@ -901,9 +999,9 @@ int main(int argc, char** argv) {
         good_correspondences=final_correspondences;
         std::cout << "remapped correspondenc num z rejection: "<<good_correspondences->size()<< std::endl;
     }
+    */
 
-
-
+    /*
     for (int i = 0; i < good_correspondences->size(); ++i){
         r=0;
         g=0;
@@ -949,7 +1047,7 @@ int main(int argc, char** argv) {
         }
         tgt_idx.z-=visu_dist;
     }
-
+    */
     //add the virtual distance to the between the two clouds to make them better visual distinguishable
     for (std::size_t i = 0; i < tgt->points.size (); ++i) {
         tgt->points[i].z +=visu_dist;
@@ -964,15 +1062,17 @@ int main(int argc, char** argv) {
         corresp_viewer.addPointCloud<pcl::PointXYZ>(keypoints_tgt_visualize_temp, "keypoints_tgt_corresp_viewer");
         corresp_viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5,"keypoints_tgt_corresp_viewer");
     }
+
+
+    /*
     float exact_match_rate=0, evaluation_match_rate=0;
     //cout << "All correspondences size: " << all_correspondences->size() << endl;
-
-    cout << "Good correspondences size: " << good_correspondences->size() << endl;
-    std::cout << "exact matched features: " << counter_correctFmatch << std::endl;
+    //cout << "Good correspondences size: " << good_correspondences->size() << endl;
+    //std::cout << "exact matched features: " << counter_correctFmatch << std::endl;
     std::cout << "features in the validation region: " << counter_validationR << std::endl;
-    exact_match_rate= (double) counter_correctFmatch / (double) good_correspondences->size () ;
+    //exact_match_rate= (double) counter_correctFmatch / (double) good_correspondences->size () ;
     std::cout << "Overlapping Rate of exact matching features: " << exact_match_rate << std::endl;
-    evaluation_match_rate= (double) (counter_correctFmatch+counter_validationR) / (double) good_correspondences->size () ;
+    //evaluation_match_rate= (double) (counter_correctFmatch+counter_validationR) / (double) good_correspondences->size () ;
     std::cout << "Overlapping Rate features in the validation range: " << evaluation_match_rate << std::endl;
     std::cout << "with validation radius in: " << validation_radius_in << std::endl;
     std::cout << "with validation radius out: " << validation_radius_out << std::endl;
@@ -984,7 +1084,7 @@ int main(int argc, char** argv) {
         std::cout << "bin " << counter << " [" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "] :" << distance_bin_results[counter]<< std::endl;
     }
     std::cout << "bin 9 [" << evaluation_distances [8] << "<=...] :" << distance_bin_results[9]<< std::endl;
-
+*/
 
 
     //write kez information to the measurement file in case e.g. for grid search
@@ -1018,7 +1118,7 @@ int main(int argc, char** argv) {
         //std::cout<<"jet_stacking_threshold: " << jet_stacking_threshold<<std::endl;
 
         //add perormance results
-        out <<time_elapsed_computation<< "," <<good_correspondences->size()<< "," <<counter_correctFmatch<< "," <<counter_validationR<< "," <<exact_match_rate<< "," <<evaluation_match_rate<< "," <<validation_radius_in<< "," <<validation_radius_out<< ",";
+        //out <<time_elapsed_computation<< "," <<good_correspondences->size()<< "," <<counter_correctFmatch<< "," <<counter_validationR<< "," <<exact_match_rate<< "," <<evaluation_match_rate<< "," <<validation_radius_in<< "," <<validation_radius_out<< ",";
         out << distance_bin_results[0];
         for(int counter=1;counter<9;counter++) {out << ","<< distance_bin_results[counter];}
         out << ","<< distance_bin_results[9]<< std::endl;
