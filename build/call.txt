@@ -1,3 +1,5 @@
+for Harris:
+./testkeypoints --noiseoff=0.0 --noisestdv=0.01 --method=Harris --visdistance=30 --grid=0 -j 1 --HarrisRosponseMethod=LOWE --set_radius_harris=3. --set_radius_search_harris=5.
 
 ./testkeypoints --noiseoff=0.0 --noisestdv=0.0 --method=ISS --visdistance=30 --grid=0 -j 1
 

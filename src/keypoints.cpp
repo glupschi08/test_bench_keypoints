@@ -85,15 +85,24 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr harris3d( pcl::PointCloud<pcl::PointXYZRGB>
 }
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr iss3d( pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud ) {
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr iss3d( pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud, int SalientRad_muliplier, int NonMaxMultiplier, double Threshold21, double Threshold32, int setMinNeighbors, int setNumberOfThreads ) {
     pcl::console::TicToc tt;
     tt.tic();
     pcl::ISSKeypoint3D<pcl::PointXYZRGB, pcl::PointXYZRGB> iss_detector;
-    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree( new pcl::search::KdTree<pcl::PointXYZRGB>() );
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree( new pcl::search::KdTree<pcl::PointXYZRGB>());
 
     double cloud_resolution = compute_cloud_resolution( cloud );
 
     iss_detector.setSearchMethod (tree);
+
+    iss_detector.setSalientRadius (SalientRad_muliplier * cloud_resolution);
+    iss_detector.setNonMaxRadius (NonMaxMultiplier * cloud_resolution);
+
+    iss_detector.setThreshold21 (Threshold21);//0.975
+    iss_detector.setThreshold32 (Threshold32);
+    iss_detector.setMinNeighbors (setMinNeighbors);
+    iss_detector.setNumberOfThreads (setNumberOfThreads);
+/*
     iss_detector.setSalientRadius (6 * cloud_resolution);
     iss_detector.setNonMaxRadius (4 * cloud_resolution);
 
@@ -101,6 +110,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr iss3d( pcl::PointCloud<pcl::PointXYZRGB>:
     iss_detector.setThreshold32 (0.99);
     iss_detector.setMinNeighbors (5);
     iss_detector.setNumberOfThreads (1);
+    */
     iss_detector.setInputCloud (cloud);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr kpts( new pcl::PointCloud<pcl::PointXYZRGB>() );
     iss_detector.compute(*kpts);
