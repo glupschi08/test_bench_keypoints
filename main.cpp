@@ -1,9 +1,3 @@
-//todo check which kind of descriptor is used (RGB or regular)
-//todo visualize evaluation region! with a  sample point
-//todo check which matrix is used for the evaluation and which one for the visualization
-//todo color after adding the noise and the rotation! otherwise no fair results
-//todo check if the rotation is applied correctly in the evaluation function
-//todo add option to adjust the visualization offset sepperatly from the actual offset
 
 #include <fstream>
 #include <iostream>
@@ -78,7 +72,6 @@
 //new keypoint methods
 #include <pcl/keypoints/susan.h>
 #include <pcl/keypoints/harris_6d.h>
-
 
 using namespace std;
 
@@ -198,11 +191,7 @@ std::tuple<uint8_t, uint8_t, uint8_t> stacked_jet(double z, double threshold){
     }else{
         val=z/(threshold/2);
     }
-    //std::cout << "new z: " << z  << "   val: " << val <<std::endl;
-    //std::cout << "val: " << val << std::endl;
-    //colors_rgb = jet(z/(threshold);
     return jet(val);
-    //return std::make_tuple(uint8_t(255.*0), uint8_t(255.*0), uint8_t(255.*0));
 }
 
 
@@ -242,161 +231,11 @@ void add_noise_normal_distributedvoid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr clo
             cloud->points[i].g = green;
             cloud->points[i].b = blue;
         }
-
     }
     std::cout << "avg: " << avg << std::endl;
     std::cout << "normal_distributed noise added("<< mean << ","<< stdv << "):" << std::endl;
 }
 
-
-
-void compute_PFHRGB_features(pcl::PointCloud <pcl::PointXYZRGB>::Ptr &cloud,
-    pcl::PointCloud <pcl::Normal>::Ptr &normals,
-    pcl::PointCloud <pcl::PointWithScale>::Ptr &keypoints,
-    pcl::PointCloud <pcl::PFHRGBSignature250>::Ptr &descriptors_out) {
-
-
-    // copy only XYZ data of keypoints for use in estimating features
-    pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
-    pcl::copyPointCloud(*keypoints, *keypoints_xyzrgb);
-
-    // Create the PFH estimation class, and pass the input dataset+normals to it
-    pcl::PFHRGBEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PFHRGBSignature250> pfhrgbEstimation;
-
-
-    pfhrgbEstimation.setInputCloud(keypoints_xyzrgb);
-    pfhrgbEstimation.setSearchSurface(cloud); // use all points for analyzing local cloud structure
-    pfhrgbEstimation.setInputNormals(normals);
-    // alternatively, if cloud is of tpe PointNormal, do pfh.setInputNormals (cloud);
-
-    // Create an empty kdtree representation, and pass it to the PFH estimation object.
-    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>());
-    pfhrgbEstimation.setSearchMethod(tree);
-    //pfhrgbEstimation.setKSearch(100);
-
-    // Use all neighbors in a sphere of radius radius
-    // IMPORTANT: the radius used here has to be larger than the radius used to estimate the surface normals!!!
-    pfhrgbEstimation.setRadiusSearch(feature_radius);
-
-    // Compute the features
-    pfhrgbEstimation.compute(*descriptors_out);
-
-}
-
-void compute_PFH_features(pcl::PointCloud <pcl::PointXYZRGB>::Ptr &cloud,
-                             pcl::PointCloud <pcl::Normal>::Ptr &normals,
-                             pcl::PointCloud <pcl::PointWithScale>::Ptr &keypoints,
-                             pcl::PointCloud <pcl::PFHSignature125>::Ptr &descriptors_out) {
-
-
-    // copy only XYZ data of keypoints for use in estimating features
-    pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
-    pcl::copyPointCloud(*keypoints, *keypoints_xyzrgb);
-
-    // Create the PFH estimation class, and pass the input dataset+normals to it
-    pcl::PFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PFHSignature125> pfhEstimation;
-
-
-    pfhEstimation.setInputCloud(keypoints_xyzrgb);
-    pfhEstimation.setSearchSurface(cloud); // use all points for analyzing local cloud structure
-    pfhEstimation.setInputNormals(normals);
-    // alternatively, if cloud is of tpe PointNormal, do pfh.setInputNormals (cloud);
-
-    // Create an empty kdtree representation, and pass it to the PFH estimation object.
-    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>());
-    pfhEstimation.setSearchMethod(tree);
-    //pfhrgbEstimation.setKSearch(100);
-
-    // Use all neighbors in a sphere of radius radius
-    // IMPORTANT: the radius used here has to be larger than the radius used to estimate the surface normals!!!
-    pfhEstimation.setRadiusSearch(feature_radius);
-
-    // Compute the features
-    pfhEstimation.compute(*descriptors_out);
-
-}
-
-void findCorrespondences_PFHRGB(const pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr &fpfhs_src,
-    const pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr &fpfhs_tgt,
-    pcl::Correspondences &all_correspondences) {
-
-    pcl::registration::CorrespondenceEstimation<pcl::PFHRGBSignature250, pcl::PFHRGBSignature250> est;
-    est.setInputSource(fpfhs_src);
-    est.setInputTarget(fpfhs_tgt);
-    est.determineReciprocalCorrespondences(all_correspondences);
-}
-
-void findCorrespondences_PFH (pcl::PointCloud<pcl::PFHSignature125>::Ptr &fpfhs_src,
-                                       pcl::PointCloud<pcl::PFHSignature125>::Ptr &fpfhs_tgt,
-                                       pcl::Correspondences &all_correspondences) {
-    // Resize the output vector
-    /*
-    std::cout << "PFH source_descriptors size:" << source_descriptors->size () << std::endl;
-    correspondences_out.resize (source_descriptors->size ());
-    correspondence_scores_out.resize (source_descriptors->size ());
-    std::cout << "shapeContext correspondences_out size:" << correspondences_out.size () << std::endl;
-    std::cout << "shapeContext correspondence_scores_out size:" << correspondence_scores_out.size () << std::endl;
-
-*/
-    pcl::registration::CorrespondenceEstimation<pcl::PFHSignature125, pcl::PFHSignature125> est;
-    est.setInputSource(fpfhs_src);
-    est.setInputTarget(fpfhs_tgt);
-    est.determineReciprocalCorrespondences(all_correspondences);
-
-    // Use a KdTree to search for the nearest matches in feature space7
-    /*
-    pcl::search::KdTree<pcl::PFHSignature125> descriptor_kdtree;
-    descriptor_kdtree.setInputCloud (target_descriptors);
-
-
-    // Find the index of the best match for each keypoint, and store it in "correspondences_out"
-    const int k = 1;
-    std::vector<int> k_indices (k);
-    std::vector<float> k_squared_distances (k);
-
-    for (size_t i = 0; i < source_descriptors->size (); ++i)
-    {
-        descriptor_kdtree.nearestKSearch (*source_descriptors, i, k, k_indices, k_squared_distances);
-        correspondences_out[i] = k_indices[0];
-        correspondence_scores_out[i] = k_squared_distances[0];
-    }
-     */
-}
-
-
-void rejectBadCorrespondences_onZDist(const pcl::CorrespondencesPtr &all_correspondences,
-                              const pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_src,
-                              const pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_tgt,
-                              pcl::Correspondences &remaining_correspondences)
-{
-
-}
-
-
-void rejectBadCorrespondences(const pcl::CorrespondencesPtr &all_correspondences,
-                              const pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_src,
-                              const pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_tgt,
-                                    pcl::Correspondences &remaining_correspondences)
-{
-    // copy only XYZRGB data of keypoints for use in estimating features
-    pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_src_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
-    pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_tgt_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
-    pcl::copyPointCloud(*keypoints_src, *keypoints_src_xyzrgb);
-    pcl::copyPointCloud(*keypoints_tgt, *keypoints_tgt_xyzrgb);
-
-
-    // RandomSampleConsensus bad correspondence rejector
-    pcl::registration::CorrespondenceRejectorSampleConsensus <pcl::PointXYZRGB> correspondence_rejector;
-    correspondence_rejector.setInputSource (keypoints_src_xyzrgb);
-    correspondence_rejector.setInputTarget (keypoints_tgt_xyzrgb);
-    correspondence_rejector.setInlierThreshold(RANSAC_Inlier_Threshold);
-    correspondence_rejector.setMaximumIterations(RANSAC_Iterations);
-    correspondence_rejector.setRefineModel(true);//false
-    correspondence_rejector.setInputCorrespondences(all_correspondences);
-    correspondence_rejector.getCorrespondences(remaining_correspondences);
-}
 
 
 void compute_keypoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
@@ -544,7 +383,6 @@ void compute_keypoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
         susan3D_src->compute(*keypoints_susan_scr);
         susan3D_tgt->compute(*keypoints_susan_tgt);
 
-
         cout << "No of SUSAN points in the src are " << keypoints_susan_scr->points.size() << endl;
         cout << "No of SUSAN points in the tgt are " << keypoints_susan_tgt->points.size() << endl;
 
@@ -559,64 +397,9 @@ void compute_keypoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &src,
         cout << "No of SIFT points in the tgt are " << keypoints_tgt->points.size() << endl;
     }
 
-
-
-
-
-/*
-    // PFHRGB Estimation
-    pcl::PointCloud <pcl::PFHRGBSignature250>::Ptr fpfhs_src_rgb(new pcl::PointCloud<pcl::PFHRGBSignature250>);
-    pcl::PointCloud <pcl::PFHRGBSignature250>::Ptr fpfhs_tgt_rgb(new pcl::PointCloud<pcl::PFHRGBSignature250>);
-
-    compute_PFHRGB_features(src, src_normals, keypoints_src, fpfhs_src_rgb);
-    compute_PFHRGB_features(tgt, tgt_normals, keypoints_tgt, fpfhs_tgt_rgb);
-    cout << "End of compute_FPFH_RGB_features! " << endl;
-*/
     // Copying the pointwithscale to pointxyz so as visualize the cloud
     pcl::copyPointCloud(*keypoints_src, *keypoints_src_visualize_temp);
     pcl::copyPointCloud(*keypoints_tgt, *keypoints_tgt_visualize_temp);
-
-    //cout << " points in the keypoints_src_visualize_temp are " << keypoints_src_visualize_temp->points.size() << endl;
-    //cout << " points in the keypoints_tgt_visualize_temp are " << keypoints_tgt_visualize_temp->points.size() << endl;
-
-/*
-    // Find correspondences between keypoints in FPFH space
-    pcl::CorrespondencesPtr all_correspondences_RGB(new pcl::Correspondences);
-    findCorrespondences_PFHRGB(fpfhs_src_rgb, fpfhs_tgt_rgb, *all_correspondences_RGB);
-    cout << "All correspondences size: " << all_correspondences_RGB->size() << endl;
-*/
-
-    //todo remove later -> uncomented stuff is without RGB matching
-    /*
-    // PFHRGB Estimation
-    pcl::CorrespondencesPtr all_correspondences(new pcl::Correspondences);
-    pcl::PointCloud <pcl::PFHSignature125>::Ptr fpfhs_src (new pcl::PointCloud<pcl::PFHSignature125>);
-    pcl::PointCloud <pcl::PFHSignature125>::Ptr fpfhs_tgt(new pcl::PointCloud<pcl::PFHSignature125>);
-
-    compute_PFH_features(src, src_normals, keypoints_src, fpfhs_src);
-    compute_PFH_features(tgt, tgt_normals, keypoints_tgt, fpfhs_tgt);
-    cout << "End of compute_FPFH_features! " << endl;
-    findCorrespondences_PFH(fpfhs_src, fpfhs_tgt, *all_correspondences);
-
-
-    cout << "End of findCorrespondences! " << endl;
-    cout << "All correspondences size: " << all_correspondences->size() << endl;
-
-    // Reject correspondences based on their XYZ distance
-    /*rejectBadCorrespondences(all_correspondences, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp, good_correspondences);*/
-/*
-    rejectBadCorrespondences(all_correspondences_RGB, keypoints_src, keypoints_tgt, good_correspondences);
-    //rejectBadCorrespondences(all_correspondences, keypoints_src, keypoints_tgt, good_correspondences);
-
-    cout << "End of rejectBadCorrespondences! " << endl;
-    cout << "Good correspondences size: " << good_correspondences.size() << endl;
-
-
-
-    pcl::registration::TransformationEstimationSVD<pcl::PointXYZ, pcl::PointXYZ> trans_est;
-    trans_est.estimateRigidTransformation(*keypoints_src_visualize_temp, *keypoints_tgt_visualize_temp, good_correspondences, transform);
-
-*/
 }
 
 void keypoint_evaluation(Mapsample& submap_overlap, const pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_1, const pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_2){
@@ -723,7 +506,6 @@ int main(int argc, char** argv) {
             ("b,betha", "roation around y axis (insert in radiant)", cxxopts::value<double>(rot_betha)->default_value("0.0"))
             ("c,gamma", "roation around x axis (insert in radiant)", cxxopts::value<double>(rot_gamma)->default_value("0.0"))
 
-
             ("m,method", "method to search keypoints (ISS, Harris, otherwise SWIFT)", cxxopts::value<std::string>())
             ("min_scale_SIFT", "input parameter min_scale_SIFT for SIFT", cxxopts::value<double>(min_scale_SIFT)->default_value("0.2"))
             ("nr_octaves_SIFT", "input parameter nr_octaves_SIFT for SIFT", cxxopts::value<int>(nr_octaves_SIFT)->default_value("4"))
@@ -737,7 +519,7 @@ int main(int argc, char** argv) {
             ("SalientRad_muliplier_ISS", "input parameter SalientRad_muliplier_ISS for ISS", cxxopts::value<int>(SalientRad_muliplier_ISS)->default_value("6"))
             ("NonMaxMultiplier_ISS", "input parameter NonMaxMultiplier_ISS for ISS", cxxopts::value<int>(NonMaxMultiplier_ISS)->default_value("4"))
             ("Threshold21_ISS", "input parameter min_scale_SIFT for ISS", cxxopts::value<double>(Threshold21_ISS)->default_value("0.99"))
-            ("Threshold32_ISS", "input parameter Threshold32_ISS for ISS", cxxopts::value<double>(min_scale_SIFT)->default_value("0.99"))
+            ("Threshold32_ISS", "input parameter Threshold32_ISS for ISS", cxxopts::value<double>(Threshold32_ISS)->default_value("0.99"))
             ("setMinNeighbors_ISS", "input parameter setMinNeighbors_ISS for ISS", cxxopts::value<int>(setMinNeighbors_ISS)->default_value("5"))
             ("setNumberOfThreads_ISS", "input parameter setNumberOfThreads_ISS for ISS", cxxopts::value<int>(setNumberOfThreads_ISS)->default_value("1"))
 
@@ -790,7 +572,7 @@ int main(int argc, char** argv) {
     }
     std::string measure_file_str;
     if (result.count("output_filename"))    {
-        std::cout << "filename for measurement = " << result["output_filename"].as<std::string>() << std::endl;
+        std::cout << "Output filename for measurement = " << result["output_filename"].as<std::string>() << std::endl;
         measure_file_str=result["output_filename"].as<std::string>();
     }else{
         measure_file_str = "measurement.csv";
@@ -947,8 +729,6 @@ int main(int argc, char** argv) {
 
 
 
-
-
     // Create the filtering object
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_decimated(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::VoxelGrid<pcl::PointXYZRGB> sor;
@@ -963,7 +743,6 @@ int main(int argc, char** argv) {
 
     cerr << "Src PointCloud after decimation: " << src_decimated->width * src_decimated->height
         << " data points (" << pcl::getFieldsList(*src_decimated) << ")." << endl;
-
     cerr << "Tgt PointCloud after decimation: " << tgt_decimated->width * tgt_decimated->height
         << " data points (" << pcl::getFieldsList(*tgt_decimated) << ")." << endl;
 
@@ -973,69 +752,45 @@ int main(int argc, char** argv) {
     src = src_decimated;
     tgt = tgt_decimated;
 
-    // Compute the best transformtion
-    // Copying the pointwithscale to pointxyz so as visualize the cloud
+
+    //get the keypoints
     pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_src_visualize_temp(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_tgt_visualize_temp(new pcl::PointCloud<pcl::PointXYZ>);
-
-
-    // Find correspondences between keypoints in FPFH space
-    //pcl::CorrespondencesPtr good_correspondences(new pcl::Correspondences);
-
-    // Obtain the initial transformation matirx by using the key-points
-    //Eigen::Matrix4f transform;
     compute_keypoints(src, tgt, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp, keypoint_method,
             min_scale_SIFT, nr_octaves_SIFT, nr_scales_per_octave_SIFT, min_contrast_SIFT,
             set_radius_harris, set_radius_search_harris,HarrisRosponseMethod,
             SalientRad_muliplier_ISS, NonMaxMultiplier_ISS, Threshold21_ISS, Threshold32_ISS, setMinNeighbors_ISS, setNumberOfThreads_ISS);
-    //cout << "Initial Transformation Matrix" << endl;
-    //std::cout << transform << std::endl;
 
     // Time end (main computation)
     time(&end_computation);
     double time_elapsed_computation = difftime(end_computation, start_computation);
     cout << "Elasped computation time in seconds: " << time_elapsed_computation << endl;
 
-    //---------------get basic keypoint ratio---------------------
+    //get the most outer points of the cloud and calc the overlapping area
     pcl::PointXYZRGB minPt1, maxPt1, minPt2, maxPt2;;
     pcl::getMinMax3D (*src, minPt1, maxPt1);
     pcl::getMinMax3D (*tgt, minPt2, maxPt2);
-
     Mapsample mapsample_1, mapsample_2, submap_overlap;
     mapsample_1.set_values(minPt1.x, minPt1.y, minPt1.z,maxPt1.x, maxPt1.y, maxPt1.z);
     mapsample_2.set_values(minPt2.x, minPt2.y, minPt2.z,maxPt2.x, maxPt2.y, maxPt2.z);
     get_overlap(mapsample_1, mapsample_2, submap_overlap);
 
-    //mapsample_1.set_values(-100.0,-100.0,-100.0,100.0,10.0,10.0); // old values -> set to min max instead
-    //mapsample_2.set_values(-200.0,-50.0,-120.0,50.0,10.0,0.0);    // old values -> set to min max instead
-
-    std::cout << "Overlap details: " << "Submap 1 details: "<< "Submap 1 details: " << std::endl;
-    std::cout << "Max x: " << submap_overlap.maxX << "   Max x: " << maxPt1.x << "   Max x: " << maxPt2.x << std::endl;
-    std::cout << "Max y: " << submap_overlap.maxY << "   Max y: " << maxPt1.y << "   Max x: " << maxPt2.y << std::endl;
-    std::cout << "Max z: " << submap_overlap.maxZ << "   Max z: " << maxPt1.z << "   Max x: " << maxPt2.z <<std::endl;
-    std::cout << "Min x: " << submap_overlap.minX << "  Min x: " << minPt1.x << "  Min x: " << minPt2.x <<std::endl;
-    std::cout << "Min y: " << submap_overlap.minY << "  Min y: " << minPt1.y << "  Min y: " << minPt2.y <<std::endl;
-    std::cout << "Min z: " << submap_overlap.minZ << "  Min z: " << minPt1.z << "  Min z: " << minPt2.z <<std::endl;
+    //output the overlapping region
+    if(0){
+        std::cout << "Overlap details: " << "Submap 1 details: "<< "Submap 1 details: " << std::endl;
+        std::cout << "Max x: " << submap_overlap.maxX << "   Max x: " << maxPt1.x << "   Max x: " << maxPt2.x << std::endl;
+        std::cout << "Max y: " << submap_overlap.maxY << "   Max y: " << maxPt1.y << "   Max x: " << maxPt2.y << std::endl;
+        std::cout << "Max z: " << submap_overlap.maxZ << "   Max z: " << maxPt1.z << "   Max x: " << maxPt2.z <<std::endl;
+        std::cout << "Min x: " << submap_overlap.minX << "  Min x: " << minPt1.x << "  Min x: " << minPt2.x <<std::endl;
+        std::cout << "Min y: " << submap_overlap.minY << "  Min y: " << minPt1.y << "  Min y: " << minPt2.y <<std::endl;
+        std::cout << "Min z: " << submap_overlap.minZ << "  Min z: " << minPt1.z << "  Min z: " << minPt2.z <<std::endl;
+    }
     if(grid_flag!=1){
         keypoint_evaluation(submap_overlap, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp); //potherwise done later
     }
 
-    //-------------------------------------------------------
 
-
-
-    //todo active for saving only
-    if(0 ){
-        pcl::PCDWriter writer;
-        pcl::io::savePCDFile( "keypoints_src_visualize_temp.pcd", *keypoints_src_visualize_temp, true );
-        std::cout << "Save succesfully keypoints_src_visualize_temp" << std::endl;
-        pcl::io::savePCDFile( "keypoints_tgt_visualize_temp.pcd", *keypoints_src_visualize_temp, true );
-        std::cout << "Save succesfully keypoints_tgt_visualize_temp" << std::endl;
-    }
-
-
-
-// Visualization of keypoints along with the original cloud and correspondences
+    // Visualization of keypoints along with the original cloud
     pcl::visualization::PCLVisualizer corresp_viewer("Correspondences Viewer");
     if(grid_flag!=1){
         corresp_viewer.setBackgroundColor(0, 0, 0);
@@ -1068,83 +823,10 @@ int main(int argc, char** argv) {
 
     int counter_correctFmatch=0, counter_wrongFmatch=0, counter_validationR=0;
     double x_diff=0, y_diff=0;
-    double r =0, g=0, b=0, distance=0;
+    double r =0, g=0, b=0;
     pcl::PointXYZ tgt_transformed_tmp;  //descripes the target point in with the applied transformation in the new coordinate system
 
-    //additional correspondences rejection based on the z difference (the z distance can be assumed to be more accurate)
-    /*
-    if(z_rejection_flag==1){
-        pcl::CorrespondencesPtr final_correspondences (new pcl::Correspondences ());
-        int correspondenc_cnt=0;
-        double correspondencZthresh=(jet_stacking_threshold/4)-5;
-        std::cout << "correspondencZthresh: "<<correspondencZthresh<< std::endl;
-        for (int i = 0; i < good_correspondences->size(); ++i) {
-            pcl::PointXYZ & src_idx = keypoints_src_visualize_temp->points[(*good_correspondences)[i].index_query];
-            pcl::PointXYZ & tgt_idx = keypoints_tgt_visualize_temp->points[(*good_correspondences)[i].index_match];
-            //std::cout << "z dist: " << ( abs(abs( src_idx.z) -abs(tgt_idx.z )) )<< std::endl;
-            if( ( abs(abs( src_idx.z) -abs(tgt_idx.z )) ) < correspondencZthresh){
-                pcl::Correspondence c_tmp;
-                //c_tmp.index_match=(*good_correspondences)[i].index_query;
-                //c_tmp.index_match=(*good_correspondences)[i].index_match;
-                c_tmp=(*good_correspondences)[i];
-                final_correspondences->push_back (c_tmp);
-                correspondenc_cnt++;
-            }
-        }
-        std::cout << "correspondenc num before z rejection: "<<good_correspondences->size()<< std::endl;
-        std::cout << "correspondenc num after z rejection: "<<final_correspondences->size()<< std::endl;
-        good_correspondences=final_correspondences;
-        std::cout << "remapped correspondenc num z rejection: "<<good_correspondences->size()<< std::endl;
-    }
-    */
 
-    /*
-    for (int i = 0; i < good_correspondences->size(); ++i){
-        r=0;
-        g=0;
-        b=0;
-        pcl::PointXYZ & src_idx = keypoints_src_visualize_temp->points[(*good_correspondences)[i].index_query];
-        pcl::PointXYZ & tgt_idx = keypoints_tgt_visualize_temp->points[(*good_correspondences)[i].index_match];
-        pcl::PointXYZ & tgt_eval_idx = tgt_transformed_eval->points[(*good_correspondences)[i].index_match];
-        string lineID = to_string(i);
-
-        //move this to a seperate function later
-        //calc the distance for the bin evaluation
-        x_diff=src_idx.x-(tgt_eval_idx.x);
-        y_diff=src_idx.y-(tgt_eval_idx.y);
-        distance=std::sqrt(x_diff * x_diff + y_diff * y_diff);
-
-        for(int counter=0;counter<10;counter++){
-            if(distance <evaluation_distances [counter]){
-                distance_bin_results[counter]+=1;
-                break;
-            }else if(counter==9){
-                distance_bin_results[9]+=1;
-            }
-        }
-
-        if ((src_idx.x - tgt_eval_idx.x) * (src_idx.x - tgt_eval_idx.x) +(src_idx.y - tgt_eval_idx.y) * (src_idx.y - tgt_eval_idx.y) <= validation_radius_in * validation_radius_in){
-            g=255;
-            counter_correctFmatch++;
-        }else{
-            r=255;
-            counter_wrongFmatch++;
-
-            // check if the corresponding point is at least within a certain validation radius
-            if ((src_idx.x - tgt_eval_idx.x) * (src_idx.x - tgt_eval_idx.x) +(src_idx.y - tgt_eval_idx.y) * (src_idx.y - tgt_eval_idx.y) <= validation_radius_out * validation_radius_out){
-                counter_validationR++;
-                b=255;
-                r=0;
-            }
-        }
-
-        tgt_idx.z+=visu_dist;  // sift if temporary for the visual effect
-        if(grid_flag!=1) {
-            corresp_viewer.addLine<pcl::PointXYZ, pcl::PointXYZ>(src_idx, tgt_idx, r, g, b, lineID);
-        }
-        tgt_idx.z-=visu_dist;
-    }
-    */
     //add the virtual distance to the between the two clouds to make them better visual distinguishable
     for (std::size_t i = 0; i < tgt->points.size (); ++i) {
         tgt->points[i].z +=visu_dist;
@@ -1161,29 +843,6 @@ int main(int argc, char** argv) {
     }
 
 
-    /*
-    float exact_match_rate=0, evaluation_match_rate=0;
-    //cout << "All correspondences size: " << all_correspondences->size() << endl;
-    //cout << "Good correspondences size: " << good_correspondences->size() << endl;
-    //std::cout << "exact matched features: " << counter_correctFmatch << std::endl;
-    std::cout << "features in the validation region: " << counter_validationR << std::endl;
-    //exact_match_rate= (double) counter_correctFmatch / (double) good_correspondences->size () ;
-    std::cout << "Overlapping Rate of exact matching features: " << exact_match_rate << std::endl;
-    //evaluation_match_rate= (double) (counter_correctFmatch+counter_validationR) / (double) good_correspondences->size () ;
-    std::cout << "Overlapping Rate features in the validation range: " << evaluation_match_rate << std::endl;
-    std::cout << "with validation radius in: " << validation_radius_in << std::endl;
-    std::cout << "with validation radius out: " << validation_radius_out << std::endl;
-
-    std::cout << "----------------------------------------------------------------"  << std::endl;
-    std::cout << "bin results of the distance: " << std::endl;
-    std::cout << "bin 0 [0<=" << evaluation_distances [0] << "] :" << distance_bin_results[0]<< std::endl;
-    for(int counter=1;counter<9;counter++) {
-        std::cout << "bin " << counter << " [" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "] :" << distance_bin_results[counter]<< std::endl;
-    }
-    std::cout << "bin 9 [" << evaluation_distances [8] << "<=...] :" << distance_bin_results[9]<< std::endl;
-*/
-
-
     //write kez information to the measurement file in case e.g. for grid search
     if(grid_flag==1){
         std::cout << "write to file " << std::endl;
@@ -1196,20 +855,61 @@ int main(int argc, char** argv) {
         //calculate the overlapping points
         //visualize the keypoints off bodyFiltered_1 with lines
         for (size_t i = 0; i < keypoints_tgt_visualize_temp->size(); ++i) {
-            for (size_t ii = 0; ii < keypoints_src_visualize_temp->size(); ++ii) {
-                //check if a coresponding keypoint exists
-                //only check x and y since noise and offset is added to the second cloud/submap
-                if( (keypoints_tgt_visualize_temp->points[i].x==keypoints_src_visualize_temp->points[ii].x) && (keypoints_tgt_visualize_temp->points[i].y==keypoints_src_visualize_temp->points[ii].y)){
-                    keypoint_Overlap_cnt++;
+            pcl::PointXYZ & tgt_idx = keypoints_tgt_visualize_temp->points[i];
+            double distance_shortest=20;    //initalize big ang update the closest point if smaller
+
+            if( (keypoints_tgt_visualize_temp->points[i].x > submap_overlap.minX) && (keypoints_tgt_visualize_temp->points[i].x < submap_overlap.maxX) && (keypoints_tgt_visualize_temp->points[i].y > submap_overlap.minY) && (keypoints_tgt_visualize_temp->points[i].x < submap_overlap.maxY)){
+                for (size_t ii = 0; ii < keypoints_src_visualize_temp->size(); ++ii) {
+                    pcl::PointXYZ &src_idx = keypoints_src_visualize_temp->points[ii];
+                    //check if a coresponding keypoint exists
+                    //only check x and y since noise and offset is added to the second cloud/submap
+                    if ((keypoints_tgt_visualize_temp->points[i].x == keypoints_src_visualize_temp->points[ii].x) &&
+                        (keypoints_tgt_visualize_temp->points[i].y == keypoints_src_visualize_temp->points[ii].y)) {
+                        keypoint_Overlap_cnt++;
+                    }
+
+                    //is in area and overlapping
+                    if ((keypoints_src_visualize_temp->points[i].x > submap_overlap.minX) &&
+                        (keypoints_src_visualize_temp->points[i].x < submap_overlap.maxX) &&
+                        (keypoints_src_visualize_temp->points[i].y > submap_overlap.minY) &&
+                        (keypoints_src_visualize_temp->points[i].x < submap_overlap.maxY)) {
+
+                        //calc the distnance to the other points and retrieve the closest point for evaluation of stability
+                        x_diff = tgt_idx.x - (src_idx.x);
+                        y_diff = tgt_idx.y - (src_idx.y);
+                        double distance_tmp;
+                        distance_tmp = std::sqrt(x_diff * x_diff + y_diff * y_diff);
+                        if (distance_tmp < distance_shortest) {
+                            distance_shortest = distance_tmp;
+                        }
+
+                        //is overlapping
+                        if ((keypoints_tgt_visualize_temp->points[i].x == keypoints_src_visualize_temp->points[ii].x) &&
+                            (keypoints_tgt_visualize_temp->points[i].y == keypoints_src_visualize_temp->points[ii].y)) {
+                            keypoint_Overlaparea_fit_cnt++; //the points in the overalapping area which have the same coordinates
+                        }
+                    }
                 }
-                //is in area and overlapping
-                if( (keypoints_src_visualize_temp->points[i].x > submap_overlap.minX) && (keypoints_src_visualize_temp->points[i].x < submap_overlap.maxX) && (keypoints_src_visualize_temp->points[i].y > submap_overlap.minY) && (keypoints_src_visualize_temp->points[i].x < submap_overlap.maxY)){
-                    if( (keypoints_tgt_visualize_temp->points[i].x==keypoints_src_visualize_temp->points[ii].x) && (keypoints_tgt_visualize_temp->points[i].y==keypoints_src_visualize_temp->points[ii].y)){
-                        keypoint_Overlaparea_fit_cnt++; //the points in the overalapping area which have the same coordinates
+                for (int counter = 0; counter < 10; counter++) {
+                    if (distance_shortest < evaluation_distances[counter]) {
+                        distance_bin_results[counter] += 1;
+                        break;
+                    } else if (counter == 9) {
+                        distance_bin_results[9] += 1;
                     }
                 }
             }
         }
+
+        //output the bin results
+        std::cout << "----------------------------------------------------------------"  << std::endl;
+        std::cout << "bin results of the distance: " << std::endl;
+        std::cout << "bin 0 [0<=" << evaluation_distances [0] << "] :" << distance_bin_results[0]<< std::endl;
+        for(int counter=1;counter<9;counter++) {
+            std::cout << "bin " << counter << " [" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "] :" << distance_bin_results[counter]<< std::endl;
+        }
+        std::cout << "bin 9 [" << evaluation_distances [8] << "<=...] :" << distance_bin_results[9]<< std::endl;
+
 
         for (size_t counter = 0; counter < keypoints_src_visualize_temp->size(); ++counter) {
             if( (keypoints_src_visualize_temp->points[counter].x > submap_overlap.minX) && (keypoints_src_visualize_temp->points[counter].x < submap_overlap.maxX) && (keypoints_src_visualize_temp->points[counter].y > submap_overlap.minY) && (keypoints_src_visualize_temp->points[counter].x < submap_overlap.maxY)){
@@ -1251,7 +951,25 @@ int main(int argc, char** argv) {
         std::cout << "Total Overlapping Rate of Keypoints 2: " << total_overlap_rate_2 << std::endl;
         std::cout << "----------------------------------------------------------------"  << std::endl;
 
-
+        //build cum over previous
+        int sum_distance_bins[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for(int counter_out=0;counter_out<10;counter_out++){
+            for(int counter_in=0;counter_in<10;counter_in++){
+                if (counter_in<=counter_out){
+                    sum_distance_bins[counter_out] =sum_distance_bins[counter_out]+distance_bin_results[counter_in];
+                }
+            }
+        }
+        /*
+        //output the sum-bin results for test
+        std::cout << "----------------------------------------------------------------"  << std::endl;
+        std::cout << "sbin results of the distance: " << std::endl;
+        std::cout << "sbin 0 [0<=" << evaluation_distances [0] << "] :" << sum_distance_bins[0]<< std::endl;
+        for(int counter=1;counter<9;counter++) {
+            std::cout << "sbin " << counter << " [0<=" << evaluation_distances [counter] << "] :" << sum_distance_bins[counter]<< std::endl;
+        }
+        std::cout << "sbin 9 [" << evaluation_distances [8] << "<=...] :" << sum_distance_bins[9]<< std::endl;
+        */
 
 
         if (exists_file (measure_file_str) ){
@@ -1259,70 +977,61 @@ int main(int argc, char** argv) {
         }else{
             out.open(measure_file_str, std::ios::app);
             //add the header in the csv file
-            out << "src_file," << "tgt_file," << "Src_points," << "Tgt-points,"<< "noise_offest,"<<"noise_stdv,"<< "x_o," << "y_o," << "z_o,"<<"keypoint_method,"<<"Red,"<<"Green,"<<"Blue,"<<"Jetstatus,"<<"Stacked_height_threshold,"<<"min_scale_SIFT,"<<"nr_octaves_SIFT,"<<"nr_scales_per_octave_SIFT,"<<"min_contrast_SIFT,"<<"set_radius_harris,"<<"set_radius_search_harris,"<<"HarrisRosponseMethod,___,";
-            out << "comp_time[s]," ;
-
-            out <<"keypoints_1_inOverlap,"<<"keypoints_2_inOverlap,"<<"Total_Keypoints_1,"<<"Total_Keypoints_2,"<<"keypoint_Overlap_cnt,"<<"keypoint_Overlaparea_fit_cnt,"<<"overlap_rate_1,"<<"overlap_rate_2,"<<"total_overlap_rate_1,"<<"total_overlap_rate_2"<<std::endl;
-
+            out << "src_file," << "tgt_file," << "Src_points," << "Tgt-points,"<< "noise_offest,"<<"noise_stdv,"<< "x_o," << "y_o," << "z_o,"<<"keypoint_method,"<<"Red,"<<"Green,"<<"Blue,"<<"Jetstatus,"<<"Stacked_height_threshold,";
+            if(keypoint_method=="SWIFT") {
+                out << "min_scale_SIFT," << "nr_octaves_SIFT," << "nr_scales_per_octave_SIFT," << "min_contrast_SIFT,---";
+            }else if(keypoint_method=="Harris"){
+                out << "set_radius_harris," << "set_radius_search_harris," << "HarrisResponseMethod,___,";
+            }else if(keypoint_method=="ISS"){
+                out << "SalientRad_muliplier_ISS,NonMaxMultiplier_ISS,Threshold21_ISS,Threshold32_ISS,setMinNeighbors_ISS,setNumberOfThreads_ISS,---";
+            }else{
+                out << "min_scale_SIFT," << "nr_octaves_SIFT," << "nr_scales_per_octave_SIFT," << "min_contrast_SIFT,";
+                out << "set_radius_harris," << "set_radius_search_harris," << "HarrisResponseMethod,";
+                out << "SalientRad_muliplier_ISS,NonMaxMultiplier_ISS,Threshold21_ISS,Threshold32_ISS,setMinNeighbors_ISS,setNumberOfThreads_ISS,---";
+            }
+            out << ",comp_time[s]," ;
+            out <<"keypoints_1_inOverlap,"<<"keypoints_2_inOverlap,"<<"Total_Keypoints_1,"<<"Total_Keypoints_2,"<<"keypoint_Overlap_cnt,"<<"keypoint_Overlaparea_fit_cnt,"<<"overlap_rate_1,"<<"overlap_rate_2,"<<"total_overlap_rate_1,"<<"total_overlap_rate_2"<<",";
+            /*
+            out << "bin0[0<=" << evaluation_distances [0] << "]:" << distance_bin_results[0]<< ",";
+            for(int counter=1;counter<9;counter++) {
+                out << "bin" << counter << "[" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "]"<< ",";
+            }
+            out << "bin9[" << evaluation_distances [8] << "<=...]"<< std::endl;
+             */
+            out << "bin0" << "," << "bin1" << "," << "bin2" << ","<< "bin3" << ","<< "bin4" << ","<< "bin5" << ","<< "bin6" << ","<< "bin7" << ","<< "bin8" << ","<< "bin9" <<",";
+            out << "sbin0" << "," << "sbin1" << "," << "sbin2" << ","<< "sbin3" << ","<< "sbin4" << ","<< "sbin5" << ","<< "sbin6" << ","<< "sbin7" << ","<< "sbin8" << ","<< "sbin9" << std::endl;
         }
 
         //add measurment conditions
-        out <<  src_file<< "," << tgt_file<<  ","<<src_original->points.size()<< "," << tgt_transformed->points.size() <<"," <<noise_offset<<"," <<noise_var<<"," <<x_o<<"," <<y_o<<"," <<z_o<<"," <<keypoint_method<<"," <<red<<"," <<green<<"," <<blue<<"," <<jet_flag<<"," <<jet_stacking_threshold<<"," <<min_scale_SIFT<<"," <<nr_octaves_SIFT<<"," <<nr_scales_per_octave_SIFT<<"," <<min_contrast_SIFT<<"," <<set_radius_harris<<"," <<set_radius_search_harris<<","<<HarrisRosponseMethod;
-        /*
-        if (result.count("method"))    {
-            out  << "," << result["method"].as<std::string>();
+        out <<  src_file<< "," << tgt_file<<  ","<<src_original->points.size()<< "," << tgt_transformed->points.size() <<"," <<noise_offset<<"," <<noise_var<<"," <<x_o<<"," <<y_o<<"," <<z_o<<"," <<keypoint_method<<"," <<red<<"," <<green<<"," <<blue<<"," <<jet_flag<<"," <<jet_stacking_threshold<<",";
+        if(keypoint_method=="SWIFT") {
+            //out << "min_scale_SIFT," << "nr_octaves_SIFT," << "nr_scales_per_octave_SIFT," << "min_contrast_SIFT,---";
+            out <<min_scale_SIFT<<"," <<nr_octaves_SIFT<<"," <<nr_scales_per_octave_SIFT<<"," <<min_contrast_SIFT<<",";
+        }else if(keypoint_method=="Harris"){
+            //out << "set_radius_harris," << "set_radius_search_harris," << "HarrisResponseMethod,___,";
+            out<<set_radius_harris<<"," <<set_radius_search_harris<<","<<HarrisRosponseMethod<<",";
+        }else if(keypoint_method=="ISS"){
+            out << SalientRad_muliplier_ISS<<"," <<NonMaxMultiplier_ISS<<"," <<Threshold21_ISS<<"," <<Threshold32_ISS<<"," <<setMinNeighbors_ISS<<"," <<setNumberOfThreads_ISS<<",";
         }else{
-            out << "," <<"SWIFT" ;
+            out <<min_scale_SIFT<<"," <<nr_octaves_SIFT<<"," <<nr_scales_per_octave_SIFT<<"," <<min_contrast_SIFT<<",";
+            out<<set_radius_harris<<"," <<set_radius_search_harris<<","<<HarrisRosponseMethod<<",";
+            out << SalientRad_muliplier_ISS<<"," <<NonMaxMultiplier_ISS<<"," <<Threshold21_ISS<<"," <<Threshold32_ISS<<"," <<setMinNeighbors_ISS<<"," <<setNumberOfThreads_ISS<<",";
         }
-*/
-        out <<",___,";
-        out << time_elapsed_computation << ","<< keypoints_1_inOverlap<< "," << keypoints_2_inOverlap <<","<< keypoints_src_visualize_temp->size()<< "," << keypoints_tgt_visualize_temp->size() <<","<<keypoint_Overlap_cnt<<","<< keypoint_Overlaparea_fit_cnt<<","<< overlap_rate_1<<"," << overlap_rate_2<<","<< total_overlap_rate_1<<","<< total_overlap_rate_2<<std::endl;
 
 
-        //std::cout<<"jet_stacking_threshold: " << jet_stacking_threshold<<std::endl;
+        out <<"___,";
+        out << time_elapsed_computation << ","<< keypoints_1_inOverlap<< "," << keypoints_2_inOverlap <<","<< keypoints_src_visualize_temp->size()<< "," << keypoints_tgt_visualize_temp->size() <<","<<keypoint_Overlap_cnt<<","<< keypoint_Overlaparea_fit_cnt<<","<< overlap_rate_1<<"," << overlap_rate_2<<","<< total_overlap_rate_1<<","<< total_overlap_rate_2;
 
         //add perormance results
-        //out <<time_elapsed_computation<< "," <<good_correspondences->size()<< "," <<counter_correctFmatch<< "," <<counter_validationR<< "," <<exact_match_rate<< "," <<evaluation_match_rate<< "," <<validation_radius_in<< "," <<validation_radius_out<< ",";
         //out << distance_bin_results[0];
-        //for(int counter=1;counter<9;counter++) {out << ","<< distance_bin_results[counter];}
-        //out << ","<< distance_bin_results[9]<< std::endl;
+        for(int counter=0;counter<9;counter++) {out << ","<< distance_bin_results[counter];}
+        out << ","<< distance_bin_results[9];
+        for(int counter=0;counter<9;counter++) {out << ","<< sum_distance_bins[counter];}
+        out << ","<< sum_distance_bins[9]<< std::endl;
 
-        /*
-        out << "Src points: |" << src_original->points.size();
-        out << "Tgt points: |" << tgt_transformed->points.size() << endl;
-        out << "validation_radius_in: |" << validation_radius_in << std::endl;
-        out << "validation_radius_in: |"  << validation_radius_out << std::endl;
-        out << "noise offest: |" << noise_offset << std::endl;
-        out << "noise stdv: |" << noise_var << std::endl;
-        out << "x_o: |" << x_o << std::endl;___,
-        out << "y_o: |" << y_o << std::endl;
-        out << "z_o: |" << z_o << std::endl;
-        out << "rot_alpha: |" << rot_alpha << std::endl;
-        out << "rot_betha: |" << rot_betha << std::endl;
-        out << "rot_gamma: |" << rot_gamma << std::endl;
-        if (result.count("method"))    {
-            out << "keypoint method |" << result["method"].as<std::string>() << std::endl;
-        }else{
-            out << "keypoint method |" << "SWIFT" << std::endl;
-        }
-        out << "Stacked height threshold: |" << jet_stacking_threshold << std::endl;
-        out << "---"  << std::endl;
-        */
-/*
-        out << "Elasped computation time in seconds: " << time_elapsed_computation << endl;
-        out << "Good correspondences size: " << good_correspondences->size() << endl;
-        out << "exact matched features: " << counter_correctFmatch << std::endl;
-        out << "features in the validation region: " << counter_validationR << std::endl;
-        out << "Overlapping Rate of exact matching features: " << exact_match_rate << std::endl;
-        out << "Overlapping Rate features in the validation range: " << evaluation_match_rate << std::endl;
-        out << "with validation radius in: " << validation_radius_in << std::endl;
-        out << "with validation radius out: " << validation_radius_out << std::endl;
-        //std::cout << "bin results of the distance: " << std::endl;
-        out << "bin 0 [0<=" << evaluation_distances [0] << "] :" << distance_bin_results[0]<< std::endl;
-        for(int counter=1;counter<9;counter++) {out << "bin " << counter << " [" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "] :" << distance_bin_results[counter]<< std::endl;}
-        out << "bin 9 [" << evaluation_distances [8] << "<=...] :" << distance_bin_results[9]<< std::endl;
-        out << "--------------------end measurement--------------------"  << std::endl;
-        */
+
+
+
     }else{
         while (!corresp_viewer.wasStopped()) {
             corresp_viewer.spinOnce();
