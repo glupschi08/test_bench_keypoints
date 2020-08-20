@@ -4,7 +4,7 @@
 
 #endif
 double compute_cloud_resolution (const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr &cloud);
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr iss3d( pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud );
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr iss3d( pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud ,int SalientRad_muliplier, int NonMaxMultiplier, double Threshold21, double Threshold32, int setMinNeighbors, int setNumberOfThreads);
 pcl::PointCloud<pcl::PointXYZI>::Ptr harris3d( pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud,pcl::HarrisKeypoint3D<pcl::PointXYZRGB, pcl::PointXYZI>::ResponseMethod method, float set_radius, float set_radius_search );
 
 

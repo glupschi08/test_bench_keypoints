@@ -2,7 +2,7 @@
 #include <iostream>
 #include "overlap.h"
 
-void Mapsample::set_values (float a, float b, float c, float d, float e, float f) {
+void Mapsample::set_values (double a, double b, double c, double d, double e, double f) {
     minX = a;
     minY = b;
     minZ = c;
@@ -11,15 +11,18 @@ void Mapsample::set_values (float a, float b, float c, float d, float e, float f
     maxZ = f;
 }
 
+void Mapsample::calc_area(double area_tmp){
+    overlap_size = area_tmp;
+}
 
 void get_overlap(Mapsample submap_1, Mapsample submap_2, Mapsample& submap_overlap){
 
-    float minX_overlap;
-    float minY_overlap;
-    float minZ_overlap;
-    float maxX_overlap;
-    float maxY_overlap;
-    float maxZ_overlap;
+    double minX_overlap;
+    double minY_overlap;
+    double minZ_overlap;
+    double maxX_overlap;
+    double maxY_overlap;
+    double maxZ_overlap;
 
 
     //calc overlapping area
@@ -54,16 +57,18 @@ void get_overlap(Mapsample submap_1, Mapsample submap_2, Mapsample& submap_overl
         minZ_overlap=submap_2.minZ;
     }
 
-    /*
-    std::cout << "Submap OVERLAP details: "<< std::endl;
-    std::cout << "minX: " << minX_overlap << std::endl;
-    std::cout << "minY: " << minY_overlap << std::endl;
-    std::cout << "maxX: " << maxX_overlap << std::endl;
-    std::cout << "maxY: " << maxY_overlap << std::endl;
-    std::cout << "minZ: " << minZ_overlap << std::endl;
-    std::cout << "maxZ: " << maxZ_overlap << std::endl;
-*/
 
     //set the values
     submap_overlap.set_values(minX_overlap,minY_overlap,minZ_overlap,maxX_overlap,maxY_overlap,maxZ_overlap);
+
+    double x_diff, y_diff, area_overlap=0;
+    x_diff=submap_overlap.maxX-submap_overlap.minX;
+    y_diff=submap_overlap.maxY-submap_overlap.minY;
+    if(x_diff>0 && y_diff>0 ){
+        area_overlap=x_diff*y_diff;
+        submap_overlap.calc_area(area_overlap);
+    }
+    //std::cout << "x_diff in: " << x_diff <<std::endl;
+    //std::cout << "y_diff in: " << y_diff <<std::endl;
+    //std::cout << "in area: " << area_overlap << "  submap_overlap.area_overlap in: " << submap_overlap.overlap_size <<std::endl;
 }

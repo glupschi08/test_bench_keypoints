@@ -5,14 +5,15 @@
 
 class Mapsample{
 public:
-    float minX;
-    float minY;
-    float minZ;
-    float maxX;
-    float maxY;
-    float maxZ;
-    void set_values(float,float,float,float,float,float);
-
+    double minX;
+    double minY;
+    double minZ;
+    double maxX;
+    double maxY;
+    double maxZ;
+    double overlap_size;
+    void set_values(double,double,double,double,double,double);
+    void calc_area(double area_tmp);
 };
 
 #endif

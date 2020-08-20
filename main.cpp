@@ -776,7 +776,7 @@ int main(int argc, char** argv) {
     get_overlap(mapsample_1, mapsample_2, submap_overlap);
 
     //output the overlapping region
-    if(0){
+    if(1){
         std::cout << "Overlap details: " << "Submap 1 details: "<< "Submap 1 details: " << std::endl;
         std::cout << "Max x: " << submap_overlap.maxX << "   Max x: " << maxPt1.x << "   Max x: " << maxPt2.x << std::endl;
         std::cout << "Max y: " << submap_overlap.maxY << "   Max y: " << maxPt1.y << "   Max x: " << maxPt2.y << std::endl;
@@ -784,6 +784,8 @@ int main(int argc, char** argv) {
         std::cout << "Min x: " << submap_overlap.minX << "  Min x: " << minPt1.x << "  Min x: " << minPt2.x <<std::endl;
         std::cout << "Min y: " << submap_overlap.minY << "  Min y: " << minPt1.y << "  Min y: " << minPt2.y <<std::endl;
         std::cout << "Min z: " << submap_overlap.minZ << "  Min z: " << minPt1.z << "  Min z: " << minPt2.z <<std::endl;
+
+        std::cout << "overlap_size: " << submap_overlap.overlap_size <<std::endl;
     }
     if(grid_flag!=1){
         keypoint_evaluation(submap_overlap, keypoints_src_visualize_temp, keypoints_tgt_visualize_temp); //potherwise done later
@@ -981,7 +983,7 @@ int main(int argc, char** argv) {
             if(keypoint_method=="SWIFT") {
                 out << "min_scale_SIFT," << "nr_octaves_SIFT," << "nr_scales_per_octave_SIFT," << "min_contrast_SIFT,---";
             }else if(keypoint_method=="Harris"){
-                out << "set_radius_harris," << "set_radius_search_harris," << "HarrisResponseMethod,___,";
+                out << "set_radius_harris," << "set_radius_search_harris," << "HarrisResponseMethod,___";
             }else if(keypoint_method=="ISS"){
                 out << "SalientRad_muliplier_ISS,NonMaxMultiplier_ISS,Threshold21_ISS,Threshold32_ISS,setMinNeighbors_ISS,setNumberOfThreads_ISS,---";
             }else{
@@ -991,15 +993,10 @@ int main(int argc, char** argv) {
             }
             out << ",comp_time[s]," ;
             out <<"keypoints_1_inOverlap,"<<"keypoints_2_inOverlap,"<<"Total_Keypoints_1,"<<"Total_Keypoints_2,"<<"keypoint_Overlap_cnt,"<<"keypoint_Overlaparea_fit_cnt,"<<"overlap_rate_1,"<<"overlap_rate_2,"<<"total_overlap_rate_1,"<<"total_overlap_rate_2"<<",";
-            /*
-            out << "bin0[0<=" << evaluation_distances [0] << "]:" << distance_bin_results[0]<< ",";
-            for(int counter=1;counter<9;counter++) {
-                out << "bin" << counter << "[" << evaluation_distances [counter-1] << "<=" << evaluation_distances [counter] << "]"<< ",";
-            }
-            out << "bin9[" << evaluation_distances [8] << "<=...]"<< std::endl;
-             */
+
             out << "bin0" << "," << "bin1" << "," << "bin2" << ","<< "bin3" << ","<< "bin4" << ","<< "bin5" << ","<< "bin6" << ","<< "bin7" << ","<< "bin8" << ","<< "bin9" <<",";
-            out << "sbin0" << "," << "sbin1" << "," << "sbin2" << ","<< "sbin3" << ","<< "sbin4" << ","<< "sbin5" << ","<< "sbin6" << ","<< "sbin7" << ","<< "sbin8" << ","<< "sbin9" << std::endl;
+            out << "sbin0" << "," << "sbin1" << "," << "sbin2" << ","<< "sbin3" << ","<< "sbin4" << ","<< "sbin5" << ","<< "sbin6" << ","<< "sbin7" << ","<< "sbin8" << ","<< "sbin9"<<",";
+            out<< "area"<<","<< "keypoint_Overlap_cnt_per_km2"<< ","<< "keypoint_Overlaparea_fit_cnt_per_km2"<< std::endl;
         }
 
         //add measurment conditions
@@ -1027,7 +1024,11 @@ int main(int argc, char** argv) {
         for(int counter=0;counter<9;counter++) {out << ","<< distance_bin_results[counter];}
         out << ","<< distance_bin_results[9];
         for(int counter=0;counter<9;counter++) {out << ","<< sum_distance_bins[counter];}
-        out << ","<< sum_distance_bins[9]<< std::endl;
+        out << ","<< sum_distance_bins[9]<<",";
+        double keypoint_Overlap_cnt_per_area=0,keypoint_Overlaparea_fit_cnt_per_area=0;
+        keypoint_Overlap_cnt_per_area=(1000000*keypoint_Overlap_cnt)/submap_overlap.overlap_size;
+        keypoint_Overlaparea_fit_cnt_per_area=(1000000*keypoint_Overlaparea_fit_cnt)/submap_overlap.overlap_size;
+        out<<submap_overlap.overlap_size<<","<< keypoint_Overlap_cnt_per_area<<","<<keypoint_Overlaparea_fit_cnt_per_area<< std::endl;
 
 
 
